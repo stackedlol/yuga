@@ -23,24 +23,24 @@ def _build_pipeline(active: str, paused: bool) -> str:
 
     for i, (name, icon, label) in enumerate(_STAGES):
         if paused:
-            parts.append(f"[dim]{icon} {label}[/]")
+            parts.append(f"[#64748b]{icon} {label}[/]")
         elif i == active_idx:
-            parts.append(f"[bold reverse] {icon} {label} [/]")
+            parts.append(f"[bold #06b6d4 on #06b6d4 15%] {icon} {label} [/]")
         elif i < active_idx:
-            parts.append(f"{icon} {label}")
+            parts.append(f"[#22c55e]{icon} {label}[/]")
         else:
-            parts.append(f"[dim]{icon} {label}[/]")
+            parts.append(f"[#64748b]{icon} {label}[/]")
 
     result: list[str] = []
     for i, part in enumerate(parts):
         result.append(part)
         if i < len(parts) - 1:
             if not paused and i < active_idx:
-                result.append("\u2500\u2500\u25b8")
+                result.append("[#22c55e]\u2501\u2501\u25b8[/]")
             elif not paused and i == active_idx:
-                result.append("[yellow]\u2500\u2500\u25b8[/]")
+                result.append("[#f59e0b]\u2501\u2501\u25b8[/]")
             else:
-                result.append("[dim]\u2500\u2500\u25b8[/]")
+                result.append("[#334155]\u2501\u2501\u25b8[/]")
 
     return "".join(result)
 
@@ -51,23 +51,28 @@ class PipelinePanel(Static):
     PipelinePanel {
         height: 5;
         width: 100%;
-        border: tall $surface-lighten-1;
+        border: round #06b6d4 30%;
+        background: #0f172a;
         padding: 0 1;
     }
     PipelinePanel .panel-title {
         text-style: bold;
         height: 1;
+        color: #06b6d4;
+        background: #06b6d4 12%;
+        padding: 0 1;
     }
     PipelinePanel .pipe-vis {
         height: 1;
     }
     PipelinePanel .pipe-stats {
         height: 1;
+        color: #94a3b8;
     }
     """
 
     def compose(self) -> ComposeResult:
-        yield Static("\u25c8 [bold]PIPELINE[/]", classes="panel-title", id="pipe-title")
+        yield Static("\u25c8 [bold #06b6d4]PIPELINE[/]", classes="panel-title", id="pipe-title")
         yield Static("", classes="pipe-vis", id="pipe-vis")
         yield Static("", classes="pipe-stats", id="pipe-stats")
 
@@ -76,12 +81,12 @@ class PipelinePanel(Static):
         paused = exec_stats.get("paused", False)
 
         if paused:
-            indicator = "[red]\u23f8 PAUSED[/]"
+            indicator = "[#f43f5e]\u23f8 PAUSED[/]"
         else:
-            indicator = f"[green]\u25b6[/] {stage.lower()}"
+            indicator = f"[#22c55e]\u25b6[/] {stage.lower()}"
 
         self.query_one("#pipe-title", Static).update(
-            f"\u25c8 [bold]PIPELINE[/]  {indicator}"
+            f"\u25c8 [bold #06b6d4]PIPELINE[/]  {indicator}"
         )
 
         self.query_one("#pipe-vis", Static).update(_build_pipeline(stage, paused))
@@ -93,12 +98,13 @@ class PipelinePanel(Static):
         markets_ready = mm_stats.get("markets_ready", 0)
         markets_total = mm_stats.get("markets_tracked", 0)
 
+        sep = "[#334155]\u2502[/]"
         stats = (
-            f"\u26a1 [yellow]{quotes}[/] [dim]q[/]   "
-            f"\u25ce [cyan]{cycles}[/] [dim]cyc[/]   "
-            f"\u25c8 {scans} [dim]scans[/]   "
-            f"\u2714 [green]{total_quotes}[/] [dim]sent[/]   "
-            f"\u25c9 {markets_ready}[dim]/{markets_total} mkts[/]"
+            f"\u26a1 [#f59e0b]{quotes}[/] [#64748b]q[/]  {sep}  "
+            f"\u25ce [#06b6d4]{cycles}[/] [#64748b]cyc[/]  {sep}  "
+            f"\u25c8 {scans} [#64748b]scans[/]  {sep}  "
+            f"\u2714 [#22c55e]{total_quotes}[/] [#64748b]sent[/]  {sep}  "
+            f"\u25c9 {markets_ready}[#64748b]/{markets_total} mkts[/]"
         )
 
         self.query_one("#pipe-stats", Static).update(stats)

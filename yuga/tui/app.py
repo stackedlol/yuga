@@ -23,6 +23,10 @@ from yuga.tui.widgets.command_bar import CommandBar
 
 
 CSS = """
+Screen {
+    background: #0f172a;
+}
+
 #status-bar {
     height: 1;
     dock: top;
@@ -75,11 +79,51 @@ CSS = """
     height: 3;
     dock: bottom;
 }
+
+/* Global panel styling */
+.panel-title {
+    color: #06b6d4;
+    background: #06b6d4 12%;
+    padding: 0 1;
+}
+
+DataTable > .datatable--header {
+    background: #1e293b;
+    color: #94a3b8;
+    text-style: bold;
+}
+
+DataTable > .datatable--cursor {
+    background: #06b6d4 18%;
+}
+
+DataTable > .datatable--even-row {
+    background: #0f172a;
+}
+
+DataTable > .datatable--odd-row {
+    background: #1e293b 40%;
+}
+
+Footer {
+    background: #0f172a;
+    color: #64748b;
+}
+
+Footer > .footer--key {
+    background: #1e293b;
+    color: #06b6d4;
+}
+
+Footer > .footer--description {
+    color: #94a3b8;
+}
 """
 
 
 class YugaApp(App):
     TITLE = "yuga"
+    DARK = True
     CSS = CSS
 
     BINDINGS = [

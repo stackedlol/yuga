@@ -14,17 +14,22 @@ class CommandBar(Static):
         height: 3;
         padding: 0 1;
         layout: vertical;
+        background: #0f172a;
+        border-top: solid #1e293b;
     }
     CommandBar Input {
         height: 1;
         border: none;
         padding: 0;
+        background: #0f172a;
+        color: #e2e8f0;
     }
     CommandBar .cmd-out {
         height: 1;
     }
     CommandBar .cmd-hint {
         height: 1;
+        color: #64748b;
     }
     """
 
@@ -35,11 +40,13 @@ class CommandBar(Static):
 
     def compose(self) -> ComposeResult:
         yield Static(
-            "[dim]pause \u2502 resume \u2502 cancel-all \u2502 "
-            "reload \u2502 status \u2502 reset-cb \u2502 quit[/]",
+            "[#06b6d4]pause[/][#334155] \u2502 [/][#06b6d4]resume[/][#334155] \u2502 [/]"
+            "[#06b6d4]cancel-all[/][#334155] \u2502 [/][#06b6d4]reload[/][#334155] \u2502 [/]"
+            "[#06b6d4]status[/][#334155] \u2502 [/][#06b6d4]reset-cb[/][#334155] \u2502 [/]"
+            "[#06b6d4]quit[/]",
             classes="cmd-hint",
         )
-        yield Input(placeholder="\u276f", id="cmd-input")
+        yield Input(placeholder="\u276f command", id="cmd-input")
         yield Static("", classes="cmd-out", id="cmd-out")
 
     def on_input_submitted(self, event: Input.Submitted) -> None:

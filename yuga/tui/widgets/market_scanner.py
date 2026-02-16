@@ -11,21 +11,26 @@ class MarketScanner(Static):
     DEFAULT_CSS = """
     MarketScanner {
         height: 100%;
-        border: tall $surface-lighten-1;
+        border: round #06b6d4 30%;
+        background: #0f172a;
         padding: 0 1;
     }
     MarketScanner .panel-title {
         text-style: bold;
         height: 1;
+        color: #06b6d4;
+        background: #06b6d4 12%;
+        padding: 0 1;
     }
     MarketScanner DataTable {
         height: 1fr;
+        background: #0f172a;
     }
     """
 
     def compose(self) -> ComposeResult:
         yield Static(
-            "\u25c8 [bold]MARKETS[/] [dim]0[/]",
+            "\u25c8 [bold #06b6d4]MARKETS[/] [#64748b]0[/]",
             classes="panel-title", id="sc-title",
         )
         yield DataTable(id="sc-table")
@@ -43,11 +48,11 @@ class MarketScanner(Static):
         ready = sum(1 for m in markets if m["ready"])
         sig_count = len(signals)
         parts = [
-            f"\u25c8 [bold]MARKETS[/] {len(markets)}",
-            f"[green]\u25cf {ready}[/]" if ready else "[dim]\u25cb 0[/]",
+            f"\u25c8 [bold #06b6d4]MARKETS[/] {len(markets)}",
+            f"[#22c55e]\u25cf {ready}[/]" if ready else "[#64748b]\u25cb 0[/]",
         ]
         if sig_count:
-            parts.append(f"[yellow]\u26a1{sig_count}[/]")
+            parts.append(f"[#f59e0b]\u26a1{sig_count}[/]")
         self.query_one("#sc-title", Static).update("  ".join(parts))
 
         for m in markets:
@@ -55,23 +60,23 @@ class MarketScanner(Static):
             sa = m.get("spread_bps", 0)
 
             if sig:
-                dot = "[yellow]\u2738[/]"
+                dot = "[#f59e0b]\u2738[/]"
             elif m["ready"]:
-                dot = "[green]\u25cf[/]"
+                dot = "[#22c55e]\u25cf[/]"
             else:
-                dot = "[dim]\u25cb[/]"
+                dot = "[#64748b]\u25cb[/]"
 
             if sa < 20:
-                sc = f"[bold green]{sa:.1f}bp[/]"
+                sc = f"[bold #22c55e]{sa:.1f}bp[/]"
             elif sa > 80:
-                sc = f"[bold red]{sa:.1f}bp[/]"
+                sc = f"[bold #f43f5e]{sa:.1f}bp[/]"
             else:
-                sc = f"[dim]{sa:.1f}bp[/]"
+                sc = f"[#94a3b8]{sa:.1f}bp[/]"
 
             if sig:
-                sig_text = f"[bold yellow]\u26a1 {sig['spread_bps']:.0f}bp[/]"
+                sig_text = f"[bold #f59e0b]\u26a1 {sig['spread_bps']:.0f}bp[/]"
             else:
-                sig_text = "[dim]\u2014[/]"
+                sig_text = "[#64748b]\u2013[/]"
 
             t.add_row(
                 dot,
@@ -79,6 +84,6 @@ class MarketScanner(Static):
                 f"{m['yes_mid']:.3f}",
                 f"{m['no_mid']:.3f}",
                 sc,
-                "[green]\u25cf[/]" if m["ready"] else "[dim]\u25cb[/]",
+                "[#22c55e]\u25cf[/]" if m["ready"] else "[#64748b]\u25cb[/]",
                 sig_text,
             )

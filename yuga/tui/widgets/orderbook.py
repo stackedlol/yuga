@@ -13,29 +13,29 @@ class OrderBookPanel(Static):
     DEFAULT_CSS = """
     OrderBookPanel {
         height: 100%;
-        border: tall $primary-lighten-2;
-        background: $surface-darken-2;
+        border: round #06b6d4 30%;
+        background: #0f172a;
         padding: 0 1;
     }
     OrderBookPanel .panel-title {
         text-style: bold;
         height: 1;
-        color: $text;
-        background: $primary 18%;
+        color: #06b6d4;
+        background: #06b6d4 12%;
+        padding: 0 1;
     }
     OrderBookPanel .panel-body {
         height: 1fr;
-        color: $text;
     }
     """
 
     def compose(self) -> ComposeResult:
-        yield Static("[bold]ORDERBOOK  |  DEPTH VIEW[/]", classes="panel-title")
+        yield Static("[bold #06b6d4]ORDERBOOK[/]  [#334155]\u2502[/]  [#64748b]DEPTH VIEW[/]", classes="panel-title")
         yield Static("", classes="panel-body", id="ob-body")
 
     def update_book(self, view: dict) -> None:
         if not view or not view.get("market_id"):
-            self.query_one("#ob-body", Static).update("[dim]waiting for books...[/]")
+            self.query_one("#ob-body", Static).update("[#64748b]waiting for books...[/]")
             return
 
         quotes = view.get("quotes", [])
@@ -44,12 +44,12 @@ class OrderBookPanel(Static):
 
         def _bar(size: float, max_size: float, side: str) -> str:
             if not isfinite(size) or size <= 0 or max_size <= 0:
-                return "[dim]............[/]"
+                return "[#1e293b]\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591[/]"
             width = max(1, min(12, int(round((size / max_size) * 12))))
-            fill = "█" * width
-            rest = "·" * (12 - width)
-            color = "red" if side == "ask" else "green"
-            return f"[{color}]{fill}[/][dim]{rest}[/]"
+            color = "#f43f5e" if side == "ask" else "#22c55e"
+            blocks = "\u2588" * max(0, width - 1) + "\u2593" if width > 0 else ""
+            rest = "\u2591" * (12 - width)
+            return f"[{color}]{blocks}[/][#1e293b]{rest}[/]"
 
         def _fmt_side(
             side: str,
@@ -64,8 +64,8 @@ class OrderBookPanel(Static):
             for idx, (p, s) in enumerate(shown):
                 cum += float(s)
                 quote_side = "SELL" if side == "ask" else "BUY"
-                tag = "[bold yellow]  •Q[/]" if (outcome, quote_side, round(p, 3)) in qset else ""
-                side_label = "[red]A[/]" if side == "ask" else "[green]B[/]"
+                tag = "[bold #f59e0b]  \u25c6Q[/]" if (outcome, quote_side, round(p, 3)) in qset else ""
+                side_label = "[#f43f5e]A[/]" if side == "ask" else "[#22c55e]B[/]"
                 bps_txt = "--.-"
                 if mid and mid > 0:
                     bps = ((p - mid) / mid) * 10000
@@ -73,11 +73,11 @@ class OrderBookPanel(Static):
                 px_fmt = f"[bold bright_white]{p:>5.3f}[/]" if idx == 0 else f"[bold]{p:>5.3f}[/]"
                 out.append(
                     f" {side_label} {px_fmt}  "
-                    f"[bright_white]{s:>7.1f}[/]  [dim]{cum:>7.1f}[/]  "
-                    f"[dim]{bps_txt}bp[/]  {_bar(float(s), max_sz, side)}{tag}"
+                    f"[bright_white]{s:>7.1f}[/]  [#64748b]{cum:>7.1f}[/]  "
+                    f"[#64748b]{bps_txt}bp[/]  {_bar(float(s), max_sz, side)}{tag}"
                 )
             for _ in range(rows_per_side - len(shown)):
-                out.append(" [dim]·  ---.---     ---.-    ---.-   --.-bp  ............[/]")
+                out.append(" [#64748b]\u00b7  ---.---     ---.-    ---.-   --.-bp  \u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591[/]")
             return out
 
         def _fmt_header(
@@ -93,18 +93,18 @@ class OrderBookPanel(Static):
             buy_pct = (bid_top / total_top) * 100.0
             bar_fill = int(round((buy_pct / 100.0) * 16))
             bar_fill = max(0, min(16, bar_fill))
-            pressure = f"[green]{'█' * bar_fill}[/][red]{'█' * (16 - bar_fill)}[/]"
-            header = [f"[bold]{outcome}[/]  [dim]px      size      cum      dmid      depth         quote[/]"]
+            pressure = f"[#22c55e]{'\u2588' * bar_fill}[/][#f43f5e]{'\u2588' * (16 - bar_fill)}[/]"
+            header = [f"[bold #06b6d4]{outcome}[/]  [#64748b]px      size      cum      dmid      depth         quote[/]"]
             if bb is None or ba is None:
-                header.append("[dim] bb ---.---         ba ---.---[/]")
+                header.append("[#64748b] bb ---.---         ba ---.---[/]")
             else:
-                header.append(f"[green] bb {bb:.3f}[/] [dim]        [/][red]ba {ba:.3f}[/]")
+                header.append(f"[#22c55e] bb {bb:.3f}[/] [#64748b]        [/][#f43f5e]ba {ba:.3f}[/]")
             if mid is None or spr is None:
-                header.append("[dim] mid ---.---   spr ---.---   top5 b/a --.-/--.-[/]")
+                header.append("[#64748b] mid ---.---   spr ---.---   top5 b/a --.-/--.-[/]")
             else:
                 header.append(
                     f"[bright_white] mid {mid:.3f}[/]   [bright_white]spr {spr:.3f}[/]   "
-                    f"[dim]top5 b/a {bid_top:.1f}/{ask_top:.1f} ({buy_pct:>4.1f}% b)[/] {pressure}"
+                    f"[#64748b]top5 b/a {bid_top:.1f}/{ask_top:.1f} ({buy_pct:>4.1f}% b)[/] {pressure}"
                 )
             return header, mid
 
@@ -113,9 +113,9 @@ class OrderBookPanel(Static):
             ask_rows = [(float(p), float(s)) for p, s in asks]
             header, mid = _fmt_header(outcome, bid_rows, ask_rows)
             lines = header
-            lines.append("[dim] ------------------------------- asks -------------------------------[/]")
+            lines.append("[#334155] \u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504 asks \u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504[/]")
             lines += _fmt_side("ask", ask_rows, outcome, mid)
-            lines.append("[dim] ------------------------------- bids -------------------------------[/]")
+            lines.append("[#334155] \u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504 bids \u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504\u2504[/]")
             lines += _fmt_side("bid", bid_rows, outcome, mid)
             return lines
 
@@ -124,19 +124,19 @@ class OrderBookPanel(Static):
         pos = int(view.get("book_pos", 0))
         total = int(view.get("book_total", 0))
         ready_total = int(view.get("ready_total", 0))
-        nav_line = f"[dim]book {pos}/{total} | ready {ready_total} | mode {mode} | [ / ] cycle | o toggle[/]"
+        nav_line = f"[#64748b]book {pos}/{total} \u2502 ready {ready_total} \u2502 mode {mode} \u2502 [ / ] cycle \u2502 o toggle[/]"
         if view.get("is_live", True):
             if mode == "AUTO":
-                status_line = f"[green]LIVE[/] [dim]| rotate {view.get('rotate_in_s', 0.0):.1f}s[/]"
+                status_line = f"[#22c55e]LIVE[/] [#64748b]\u2502 rotate {view.get('rotate_in_s', 0.0):.1f}s[/]"
             else:
-                status_line = "[green]LIVE[/] [dim]| manual book select[/]"
+                status_line = "[#22c55e]LIVE[/] [#64748b]\u2502 manual book select[/]"
         else:
             status_line = (
-                f"[yellow]STALE[/] [dim]{view.get('stale_age_s', 0.0):.1f}s old | searching refresh...[/]"
+                f"[#f59e0b]STALE[/] [#64748b]{view.get('stale_age_s', 0.0):.1f}s old \u2502 searching refresh...[/]"
             )
         lines: list[str] = [
             f"[bold]{view.get('question', '')[:52]}[/]",
-            f"{status_line}  [dim]| mkt {market[:14]}[/]",
+            f"{status_line}  [#64748b]\u2502 mkt {market[:14]}[/]",
             nav_line,
             "",
         ]
