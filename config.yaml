@@ -1,0 +1,42 @@
+# Yuga Polymarket Arbitrage Bot Configuration
+
+polymarket:
+  clob_base_url: "https://clob.polymarket.com"
+  ws_url: "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+  gamma_url: "https://gamma-api.polymarket.com"
+  chain_id: 137  # Polygon mainnet
+  api_key: ""       # Set via POLYMARKET_API_KEY env var
+  api_secret: ""    # Set via POLYMARKET_API_SECRET env var
+  api_passphrase: "" # Set via POLYMARKET_API_PASSPHRASE env var
+  funder: ""        # Set via POLYMARKET_FUNDER env var
+
+strategy:
+  min_spread_bps: 30          # Minimum spread in basis points to trigger arb
+  max_markets: 50             # Max concurrent markets to scan
+  scan_interval_ms: 250       # Market scan frequency
+  order_size_usdc: 10.0       # Default order size
+  max_order_size_usdc: 100.0  # Maximum single order size
+  min_liquidity_usdc: 50.0    # Minimum book depth to consider
+  price_staleness_ms: 2000    # Max age of price data before discard
+
+risk:
+  max_total_exposure_usdc: 1000.0
+  max_per_market_exposure_usdc: 200.0
+  max_daily_loss_usdc: 50.0
+  max_consecutive_losses: 5
+  circuit_breaker_cooldown_s: 300
+  max_open_orders: 20
+  position_limit_per_outcome: 500.0
+
+execution:
+  order_timeout_ms: 5000
+  max_retries: 2
+  fill_poll_interval_ms: 100
+  cancel_stale_after_ms: 3000
+
+database:
+  path: "yuga.db"
+
+logging:
+  level: "INFO"
+  file: "yuga.log"
