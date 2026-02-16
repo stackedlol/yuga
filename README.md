@@ -30,7 +30,7 @@
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -44,13 +44,13 @@ python main.py --dry-run      # observe only (starts paused)
 python main.py --headless     # daemon mode, logs to stdout
 ```
 
-## 🧭 Runtime Modes
+## Runtime Modes
 
 - `python main.py`: full TUI + live quoting
 - `python main.py --dry-run`: no live orders, starts paused for safe observation
 - `python main.py --headless`: no TUI, logs only
 
-## 🏗️ Architecture
+## Architecture
 
 ```mermaid
 graph TB
@@ -82,7 +82,7 @@ graph TB
     RISK --> TUI
 ```
 
-## 🖥️ TUI Controls
+## TUI Controls
 
 Keys: `p` pause/resume &middot; `c` cancel all &middot; `r` reload config &middot; `s` status &middot; `[` / `]` prev/next book &middot; `o` toggle book auto-rotate &middot; `q` quit
 
@@ -90,11 +90,11 @@ Commands: `pause` `resume` `cancel-all` `reload` `status` `next-book` `prev-book
 
 Panels: order book, market scanner, orders, positions, odds history, pnl, pipeline.
 
-## 💾 State
+## State
 
 State is stored in `yuga.db` (SQLite). You can restart anytime; state is reloaded on startup.
 
-## 📡 Remote Monitoring
+## Remote Monitoring
 
 ```bash
 tmux new -s yuga && python main.py    # detach with Ctrl+B, D
