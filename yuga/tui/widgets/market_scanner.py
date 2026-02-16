@@ -34,7 +34,7 @@ class MarketScanner(Static):
         t = self.query_one("#sc-table", DataTable)
         t.cursor_type = "row"
         t.zebra_stripes = True
-        t.add_columns("\u25cf", "market", "y.bid", "y.ask", "n.bid", "n.ask", "\u03a3", "\u26a1")
+        t.add_columns("\u25cf", "market", "y.mid", "n.mid", "y.spread", "ready", "\u26a1")
 
     def update_markets(self, markets: list[dict], signals: dict) -> None:
         t = self.query_one("#sc-table", DataTable)
@@ -52,7 +52,7 @@ class MarketScanner(Static):
 
         for m in markets:
             sig = signals.get(m["id"])
-            sa = m["spread"]
+            sa = m.get("spread_bps", 0)
 
             if sig:
                 dot = "[yellow]\u2738[/]"
@@ -61,26 +61,24 @@ class MarketScanner(Static):
             else:
                 dot = "[dim]\u25cb[/]"
 
-            if sa < 0.995:
-                sc = f"[bold green]{sa:.4f}[/]"
-            elif sa > 1.005:
-                sc = f"[bold red]{sa:.4f}[/]"
+            if sa < 20:
+                sc = f"[bold green]{sa:.1f}bp[/]"
+            elif sa > 80:
+                sc = f"[bold red]{sa:.1f}bp[/]"
             else:
-                sc = f"[dim]{sa:.4f}[/]"
+                sc = f"[dim]{sa:.1f}bp[/]"
 
             if sig:
-                kind = "\u25b2" if "BUY" in sig["type"] else "\u25bc"
-                sig_text = f"[bold yellow]{kind} {sig['spread_bps']:.0f}bp[/]"
+                sig_text = f"[bold yellow]\u26a1 {sig['spread_bps']:.0f}bp[/]"
             else:
                 sig_text = "[dim]\u2014[/]"
 
             t.add_row(
                 dot,
                 m["question"][:30],
-                f"{m['yes_bid']:.3f}",
-                f"{m['yes_ask']:.3f}",
-                f"{m['no_bid']:.3f}",
-                f"{m['no_ask']:.3f}",
+                f"{m['yes_mid']:.3f}",
+                f"{m['no_mid']:.3f}",
                 sc,
+                "[green]\u25cf[/]" if m["ready"] else "[dim]\u25cb[/]",
                 sig_text,
             )

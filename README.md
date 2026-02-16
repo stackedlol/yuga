@@ -30,7 +30,7 @@
 
 ---
 
-## Quick Start
+## ⚡ Quick Start
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -44,19 +44,13 @@ python main.py --dry-run      # observe only (starts paused)
 python main.py --headless     # daemon mode, logs to stdout
 ```
 
-## Flow
+## 🧭 Runtime Modes
 
-```mermaid
-graph LR
-    A[Ingest Order Book + Fills] --> B[Compute Midpoint]
-    B --> C[Quote Bid/Ask Around Mid]
-    C --> D[Cancel/Replace to Stay Near Top]
-    D --> E[Fill Monitor + Inventory Update]
-    E --> F[Risk Skew: Adjust Spread/Size]
-    F --> B
-```
+- `python main.py`: full TUI + live quoting
+- `python main.py --dry-run`: no live orders, starts paused for safe observation
+- `python main.py --headless`: no TUI, logs only
 
-## Architecture
+## 🏗️ Architecture
 
 ```mermaid
 graph TB
@@ -88,19 +82,19 @@ graph TB
     RISK --> TUI
 ```
 
-## TUI
+## 🖥️ TUI Controls
 
-Keys: `p` pause/resume &middot; `c` cancel all &middot; `r` reload config &middot; `s` status &middot; `q` quit
+Keys: `p` pause/resume &middot; `c` cancel all &middot; `r` reload config &middot; `s` status &middot; `[` / `]` prev/next book &middot; `o` toggle book auto-rotate &middot; `q` quit
 
-Commands in the input bar: `pause` `resume` `cancel-all` `reload` `status` `reset-cb` `quit`
+Commands: `pause` `resume` `cancel-all` `reload` `status` `next-book` `prev-book` `book-auto` `book-auto-on` `book-auto-off` `reset-cb` `quit`
 
-Minimal panels: order book, active quotes, inventory skew, spreads, fills, rewards, health/latency.
+Panels: order book, market scanner, orders, positions, odds history, pnl, pipeline.
 
-## State
+## 💾 State
 
-All state lives in `yuga.db` (SQLite). Kill and restart anytime — the bot picks up where it left off.
+State is stored in `yuga.db` (SQLite). You can restart anytime; state is reloaded on startup.
 
-## Remote Monitoring
+## 📡 Remote Monitoring
 
 ```bash
 tmux new -s yuga && python main.py    # detach with Ctrl+B, D

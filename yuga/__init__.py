@@ -1,2 +1,2 @@
-"""Yuga - Polymarket Arbitrage Bot"""
+"""Yuga - Polymarket Market-Making Bot"""
 __version__ = "0.1.0"

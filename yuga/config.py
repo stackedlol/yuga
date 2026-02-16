@@ -23,13 +23,19 @@ class PolymarketConfig:
 
 @dataclass
 class StrategyConfig:
-    min_spread_bps: int = 30
     max_markets: int = 50
-    scan_interval_ms: int = 250
+    quote_spread_bps: int = 20
+    scan_interval_ms: int = 500
     order_size_usdc: float = 10.0
     max_order_size_usdc: float = 100.0
     min_liquidity_usdc: float = 50.0
     price_staleness_ms: int = 2000
+    quote_refresh_ms: int = 2000
+    quote_ttl_ms: int = 15000
+    reprice_threshold_bps: int = 5
+    require_fee_enabled: bool = False
+    orderbook_dwell_s: float = 8.0
+    orderbook_auto_rotate: bool = False
 
 
 @dataclass

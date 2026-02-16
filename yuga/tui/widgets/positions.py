@@ -40,12 +40,14 @@ class PositionsPanel(Static):
         yield Static("\u25c8 [bold]RISK & PNL[/]", classes="panel-title")
         yield Static("", classes="panel-body", id="risk-body")
 
-    def update_state(self, exec_stats: dict, risk: dict) -> None:
+    def update_state(self, exec_stats: dict, risk: dict, inventory: list[dict]) -> None:
         pnl = exec_stats.get("cumulative_pnl", 0)
         daily = risk.get("daily_pnl", 0)
         pc = "green" if pnl >= 0 else "red"
         dc = "green" if daily >= 0 else "red"
         pnl_icon = "\u25b2" if pnl >= 0 else "\u25bc"
+        spread_pnl = exec_stats.get("spread_capture_pnl", 0)
+        rebates = exec_stats.get("liquidity_rewards", 0)
 
         fills = exec_stats.get("total_fills", 0)
         orders = exec_stats.get("total_orders", 0)
@@ -63,6 +65,8 @@ class PositionsPanel(Static):
         lines = [
             f"  [{pc}]{pnl_icon}[/] [bold {pc}]${pnl:+.4f}[/]  [dim]all-time[/]",
             f"  [{dc}]{'\u25b2' if daily >= 0 else '\u25bc'}[/] [{dc}]${daily:+.4f}[/]  [dim]today[/]",
+            f"  [cyan]\u25ce[/] [cyan]${spread_pnl:+.4f}[/] [dim]spread[/]",
+            f"  [yellow]\u26a1[/] [yellow]${rebates:+.4f}[/] [dim]rebates[/]",
             "",
             _kv("\u2660", "orders ", f"{orders}"),
             _kv("\u2714", "fills  ", f"[green]{fills}[/]  "
@@ -91,5 +95,15 @@ class PositionsPanel(Static):
             _kv("\u25c6", "daily  ",
                 f"{_bar(loss_used, max_loss, 8)} [dim]${loss_used:.1f}/${max_loss:.0f}[/]")
         )
+
+        if inventory:
+            lines.append("")
+            lines.append("  [bold]inventory[/]")
+            for row in inventory[:6]:
+                lines.append(
+                    f"  [dim]{row.get('condition_id','')[:6]}[/] "
+                    f"{row.get('outcome',''):<3} "
+                    f"[cyan]{row.get('size',0):+.1f}[/]"
+                )
 
         self.query_one("#risk-body", Static).update("\n".join(lines))

@@ -11,13 +11,19 @@ polymarket:
   funder: ""        # Set via POLYMARKET_FUNDER env var
 
 strategy:
-  min_spread_bps: 30          # Minimum spread in basis points to trigger arb
   max_markets: 50             # Max concurrent markets to scan
-  scan_interval_ms: 250       # Market scan frequency
-  order_size_usdc: 10.0       # Default order size
+  quote_spread_bps: 20        # Total quoted spread around mid (bps)
+  scan_interval_ms: 500       # Quote loop frequency
+  order_size_usdc: 10.0       # Default quote size
   max_order_size_usdc: 100.0  # Maximum single order size
-  min_liquidity_usdc: 50.0    # Minimum book depth to consider
+  min_liquidity_usdc: 50.0    # Minimum top-of-book depth
   price_staleness_ms: 2000    # Max age of price data before discard
+  quote_refresh_ms: 2000      # Re-check open quotes
+  quote_ttl_ms: 15000         # Cancel/replace stale quotes
+  reprice_threshold_bps: 5    # Reprice if drift exceeds this
+  require_fee_enabled: false  # Only quote fee-enabled markets (if flagged by API)
+  orderbook_dwell_s: 8.0      # Seconds to keep one book visible before rotating
+  orderbook_auto_rotate: false # Manual book nav by default; true enables timed rotation
 
 risk:
   max_total_exposure_usdc: 1000.0

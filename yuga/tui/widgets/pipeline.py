@@ -8,9 +8,8 @@ from textual.widgets import Static
 
 _STAGES = [
     ("SCANNING",   "\u25ce", "scan"),
-    ("SNAPSHOT",   "\u2261", "book"),
-    ("CANDIDATE",  "\u26a1", "arb"),
-    ("PLACING",    "\u21e8", "place"),
+    ("BOOK",       "\u2261", "book"),
+    ("QUOTING",    "\u21e8", "quote"),
     ("MONITORING", "\u25d0", "fill"),
     ("RESOLVING",  "\u2714", "done"),
 ]
@@ -72,7 +71,7 @@ class PipelinePanel(Static):
         yield Static("", classes="pipe-vis", id="pipe-vis")
         yield Static("", classes="pipe-stats", id="pipe-stats")
 
-    def update_pipeline(self, stage: str, arb_stats: dict, exec_stats: dict,
+    def update_pipeline(self, stage: str, mm_stats: dict, exec_stats: dict,
                         recent_orders: list[dict] | None = None) -> None:
         paused = exec_stats.get("paused", False)
 
@@ -87,20 +86,18 @@ class PipelinePanel(Static):
 
         self.query_one("#pipe-vis", Static).update(_build_pipeline(stage, paused))
 
-        signals = arb_stats.get("active_signals", 0)
-        scans = arb_stats.get("total_scans", 0)
-        total_sig = arb_stats.get("total_signals", 0)
-        missed = arb_stats.get("missed_opportunities", 0)
-        cycles = exec_stats.get("active_cycles", 0)
-        markets_ready = arb_stats.get("markets_ready", 0)
-        markets_total = arb_stats.get("markets_tracked", 0)
+        quotes = mm_stats.get("active_quotes", 0)
+        scans = mm_stats.get("total_scans", 0)
+        total_quotes = mm_stats.get("total_quotes", 0)
+        cycles = exec_stats.get("active_quotes", 0)
+        markets_ready = mm_stats.get("markets_ready", 0)
+        markets_total = mm_stats.get("markets_tracked", 0)
 
         stats = (
-            f"\u26a1 [yellow]{signals}[/] [dim]sig[/]   "
+            f"\u26a1 [yellow]{quotes}[/] [dim]q[/]   "
             f"\u25ce [cyan]{cycles}[/] [dim]cyc[/]   "
             f"\u25c8 {scans} [dim]scans[/]   "
-            f"\u2714 [green]{total_sig}[/] [dim]found[/]   "
-            f"\u2718 [red]{missed}[/] [dim]miss[/]   "
+            f"\u2714 [green]{total_quotes}[/] [dim]sent[/]   "
             f"\u25c9 {markets_ready}[dim]/{markets_total} mkts[/]"
         )
 

@@ -59,10 +59,46 @@ CREATE TABLE IF NOT EXISTS metrics (
     updated_at REAL NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS quote_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id TEXT,
+    market_id TEXT,
+    condition_id TEXT,
+    outcome TEXT,
+    side TEXT,
+    price REAL,
+    size REAL,
+    action TEXT,             -- PLACE, CANCEL, REPRICE
+    ts REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS fills (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id TEXT,
+    market_id TEXT,
+    condition_id TEXT,
+    outcome TEXT,
+    side TEXT,
+    price REAL,
+    size REAL,
+    ts REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS rebates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    market_id TEXT,
+    amount_usdc REAL,
+    ts REAL NOT NULL,
+    source TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_orders_market ON orders(market_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_arb_market ON arb_cycles(market_id);
 CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type);
+CREATE INDEX IF NOT EXISTS idx_quote_events_market ON quote_events(market_id);
+CREATE INDEX IF NOT EXISTS idx_fills_market ON fills(market_id);
+CREATE INDEX IF NOT EXISTS idx_rebates_market ON rebates(market_id);
 """
 
 
@@ -192,6 +228,14 @@ class Database:
         row = await cur.fetchone()
         return row["exp"] or 0 if row else 0
 
+    async def get_position_size(self, condition_id: str, outcome: str) -> float:
+        cur = await self.db.execute(
+            "SELECT size FROM positions WHERE condition_id=? AND outcome=?",
+            (condition_id, outcome),
+        )
+        row = await cur.fetchone()
+        return row["size"] if row else 0.0
+
     # -- Metrics --
     async def set_metric(self, key: str, value: float) -> None:
         await self.db.execute(
@@ -216,6 +260,66 @@ class Database:
             (event_type, payload, time.time()),
         )
         await self.db.commit()
+
+    async def insert_quote_event(self, event: dict) -> None:
+        await self.db.execute(
+            """INSERT INTO quote_events
+               (order_id, market_id, condition_id, outcome, side, price, size, action, ts)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            (
+                event.get("order_id"),
+                event.get("market_id"),
+                event.get("condition_id"),
+                event.get("outcome"),
+                event.get("side"),
+                event.get("price"),
+                event.get("size"),
+                event.get("action"),
+                event.get("ts", time.time()),
+            ),
+        )
+        await self.db.commit()
+
+    async def insert_fill(self, fill: dict) -> None:
+        await self.db.execute(
+            """INSERT INTO fills
+               (order_id, market_id, condition_id, outcome, side, price, size, ts)
+               VALUES (?,?,?,?,?,?,?,?)""",
+            (
+                fill.get("order_id"),
+                fill.get("market_id"),
+                fill.get("condition_id"),
+                fill.get("outcome"),
+                fill.get("side"),
+                fill.get("price"),
+                fill.get("size"),
+                fill.get("ts", time.time()),
+            ),
+        )
+        await self.db.commit()
+
+    async def insert_rebate(self, rebate: dict) -> None:
+        await self.db.execute(
+            """INSERT INTO rebates (market_id, amount_usdc, ts, source)
+               VALUES (?,?,?,?)""",
+            (
+                rebate.get("market_id"),
+                rebate.get("amount_usdc", 0),
+                rebate.get("ts", time.time()),
+                rebate.get("source", "manual"),
+            ),
+        )
+        await self.db.commit()
+
+    async def get_rebate_stats(self) -> dict:
+        cur = await self.db.execute(
+            "SELECT SUM(amount_usdc) as total, COUNT(*) as count FROM rebates"
+        )
+        row = await cur.fetchone()
+        return {
+            "total": row["total"] or 0,
+            "count": row["count"] or 0,
+        }
 
     async def get_recent_events(self, limit: int = 100) -> list[dict]:
         cur = await self.db.execute(

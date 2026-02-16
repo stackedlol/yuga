@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import time
+from collections import defaultdict, deque
 from typing import Any, Callable, Awaitable
 
 from yuga.config import AppConfig
@@ -14,7 +15,7 @@ from yuga.execution.controller import ExecutionController, PipelineStage
 from yuga.ingestion.clob_client import CLOBClient
 from yuga.ingestion.ws_client import WebSocketClient
 from yuga.risk.manager import RiskManager
-from yuga.strategy.arbitrage import ArbitrageEngine, MarketState
+from yuga.strategy.market_maker import MarketMakerEngine, MarketState
 
 logger = logging.getLogger("yuga.engine")
 
@@ -37,9 +38,10 @@ class Engine:
             on_book_update=self._on_book_update,
         )
         self.risk = RiskManager(config.risk, self.db)
-        self.arb = ArbitrageEngine(
-            min_spread_bps=config.strategy.min_spread_bps,
+        self.mm = MarketMakerEngine(
+            quote_spread_bps=config.strategy.quote_spread_bps,
             min_liquidity=config.strategy.min_liquidity_usdc,
+            price_staleness_ms=config.strategy.price_staleness_ms,
         )
         self.executor = ExecutionController(
             clob=self.clob, risk=self.risk, db=self.db,
@@ -47,6 +49,9 @@ class Engine:
             max_order_size=config.strategy.max_order_size_usdc,
             order_timeout_ms=config.execution.order_timeout_ms,
             cancel_stale_ms=config.execution.cancel_stale_after_ms,
+            quote_refresh_ms=config.strategy.quote_refresh_ms,
+            quote_ttl_ms=config.strategy.quote_ttl_ms,
+            reprice_threshold_bps=config.strategy.reprice_threshold_bps,
         )
         self._running = False
         self._scan_task: asyncio.Task | None = None
@@ -54,6 +59,14 @@ class Engine:
         self._event_listeners: list[Callable[[str, Any], Awaitable[None]]] = []
         self._start_time = 0.0
         self._log_buffer: list[dict] = []
+        self._ob_selected_condition_id = ""
+        self._ob_selected_until = 0.0
+        self._ob_rotate_idx = 0
+        self._ob_auto_rotate = bool(config.strategy.orderbook_auto_rotate)
+        self._last_book_refresh_at = 0.0
+        self._odds_history: dict[str, deque[tuple[float, float, float]]] = defaultdict(
+            lambda: deque(maxlen=240)
+        )
 
     def add_event_listener(self, cb: Callable[[str, Any], Awaitable[None]]) -> None:
         self._event_listeners.append(cb)
@@ -69,6 +82,7 @@ class Engine:
         logger.info("Engine starting...")
         self._start_time = time.time()
         await self.db.connect()
+        await self.executor.load_positions()
         await self.clob.start()
         await self.ws.start()
         self._running = True
@@ -108,10 +122,15 @@ class Engine:
         from yuga.config import load_config
         new_cfg = load_config(path)
         self.config = new_cfg
-        self.arb.min_spread_bps = new_cfg.strategy.min_spread_bps
-        self.arb.min_liquidity = new_cfg.strategy.min_liquidity_usdc
+        self.mm.quote_spread_bps = new_cfg.strategy.quote_spread_bps
+        self.mm.min_liquidity = new_cfg.strategy.min_liquidity_usdc
+        self.mm.price_staleness_ms = new_cfg.strategy.price_staleness_ms
         self.executor.order_size = new_cfg.strategy.order_size_usdc
         self.executor.max_order_size = new_cfg.strategy.max_order_size_usdc
+        self.executor.quote_refresh_ms = new_cfg.strategy.quote_refresh_ms
+        self.executor.quote_ttl_ms = new_cfg.strategy.quote_ttl_ms
+        self.executor.reprice_threshold_bps = new_cfg.strategy.reprice_threshold_bps
+        self._ob_auto_rotate = bool(new_cfg.strategy.orderbook_auto_rotate)
         await self.db.log_event("CONFIG_RELOAD", "")
         await self._emit("config_reloaded")
 
@@ -119,6 +138,41 @@ class Engine:
         n = await self.executor.cancel_all()
         await self._emit("orders_cancelled", n)
         return n
+
+    def _available_orderbook_markets(self) -> list[MarketState]:
+        markets = [
+            m for m in self.mm.markets.values()
+            if m.yes_book is not None and m.no_book is not None
+        ]
+        markets.sort(key=lambda m: m.condition_id)
+        return markets
+
+    def _set_orderbook_selected(self, market: MarketState) -> None:
+        self._ob_selected_condition_id = market.condition_id
+        dwell_s = max(1.0, float(self.config.strategy.orderbook_dwell_s))
+        self._ob_selected_until = time.time() + dwell_s
+
+    def cycle_orderbook(self, step: int = 1) -> bool:
+        available = self._available_orderbook_markets()
+        if not available:
+            return False
+        current_idx = next(
+            (i for i, m in enumerate(available)
+             if m.condition_id == self._ob_selected_condition_id),
+            -1,
+        )
+        if current_idx < 0:
+            current_idx = 0
+        next_idx = (current_idx + step) % len(available)
+        self._set_orderbook_selected(available[next_idx])
+        return True
+
+    def set_orderbook_auto_rotate(self, enabled: bool) -> None:
+        self._ob_auto_rotate = enabled
+
+    def toggle_orderbook_auto_rotate(self) -> bool:
+        self._ob_auto_rotate = not self._ob_auto_rotate
+        return self._ob_auto_rotate
 
     # -- Market Discovery --
 
@@ -160,9 +214,13 @@ class Engine:
 
             if not m.get("enableOrderBook") or not m.get("acceptingOrders", True):
                 continue
+            if self.config.strategy.require_fee_enabled:
+                fee_enabled = bool(m.get("feeEnabled")) or bool(m.get("takerFee"))
+                if not fee_enabled:
+                    continue
 
             condition_id = m.get("conditionId", "")
-            if not condition_id or condition_id in self.arb.markets:
+            if not condition_id or condition_id in self.mm.markets:
                 continue
 
             # Gamma returns outcomes + clobTokenIds as JSON-encoded arrays
@@ -190,7 +248,7 @@ class Engine:
                 yes_token_id=yes_token_id,
                 no_token_id=no_token_id,
             )
-            self.arb.add_market(market_state)
+            self.mm.add_market(market_state)
 
             # Subscribe to WS updates
             await self.ws.subscribe(condition_id, [
@@ -206,16 +264,16 @@ class Engine:
                     return_exceptions=True,
                 )
                 if not isinstance(yes_book, Exception):
-                    self.arb.update_book(market_state.yes_token_id, yes_book)
+                    self.mm.update_book(market_state.yes_token_id, yes_book)
                 if not isinstance(no_book, Exception):
-                    self.arb.update_book(market_state.no_token_id, no_book)
+                    self.mm.update_book(market_state.no_token_id, no_book)
             except Exception as e:
                 logger.debug("Initial book fetch failed for %s: %s", condition_id[:8], e)
 
             count += 1
 
-        await self._emit("markets_updated", self.arb.stats)
-        self.add_log("INFO", f"Tracking {len(self.arb.markets)} markets")
+        await self._emit("markets_updated", self.mm.stats)
+        self.add_log("INFO", f"Tracking {len(self.mm.markets)} markets")
 
     async def _on_book_update(self, update: dict) -> None:
         """Handle real-time order book updates from WebSocket."""
@@ -235,37 +293,28 @@ class Engine:
             book_data["asks"] = update["sells"]
 
         if book_data:
-            self.arb.update_book(asset_id, book_data)
+            self.mm.update_book(asset_id, book_data)
 
     # -- Strategy Scan Loop --
 
     async def _scan_loop(self) -> None:
-        """Main loop: scan for arb opportunities and execute."""
+        """Main loop: generate quotes and keep them fresh."""
         interval = self.config.strategy.scan_interval_ms / 1000
         while self._running:
             try:
+                # Keep book backfill running even while quoting is paused.
+                await self._refresh_stale_books()
                 if not self.executor.paused:
                     self.executor.pipeline_stage = PipelineStage.SCANNING
-                    signals = self.arb.scan_all()
-
+                    signals = self.mm.generate_quotes(
+                        inventory=self.executor.inventory_by_condition(),
+                        inventory_limit=self.risk.config.position_limit_per_outcome,
+                    )
                     if signals:
-                        self.executor.pipeline_stage = PipelineStage.CANDIDATE
-                        await self._emit("signals_detected", [
-                            {"id": s.id, "market": s.market_id,
-                             "type": s.signal_type, "spread_bps": s.spread_bps,
-                             "cost": s.combined_cost}
-                            for s in signals
-                        ])
-
-                        for signal in signals:
-                            cycle = await self.executor.execute_signal(signal)
-                            if cycle:
-                                await self._emit("cycle_complete", {
-                                    "id": cycle.id, "status": cycle.status,
-                                    "pnl": cycle.pnl,
-                                })
-                    else:
-                        self.executor.pipeline_stage = PipelineStage.IDLE
+                        self.executor.pipeline_stage = PipelineStage.QUOTING
+                        await self.executor.sync_quotes(signals)
+                    await self.executor.refresh_open_orders()
+                    self.executor.pipeline_stage = PipelineStage.IDLE
 
             except asyncio.CancelledError:
                 break
@@ -274,6 +323,43 @@ class Engine:
                 self.add_log("ERROR", f"Scan: {e}")
 
             await asyncio.sleep(interval)
+
+    async def _refresh_stale_books(self) -> None:
+        """Backfill books via REST when WS updates lag to keep UI/strategy fed."""
+        now = time.time()
+        # Keep backfill rate low; WS should remain the primary source.
+        if now - self._last_book_refresh_at < 3.0:
+            return
+        self._last_book_refresh_at = now
+
+        stale_cutoff_s = max(2.0, self.config.strategy.price_staleness_ms / 1000)
+
+        def _book_age_s(m: MarketState) -> float:
+            yes_age = now - m.yes_book.timestamp if m.yes_book else 1e9
+            no_age = now - m.no_book.timestamp if m.no_book else 1e9
+            return max(yes_age, no_age)
+
+        candidates = sorted(
+            (m for m in self.mm.markets.values() if _book_age_s(m) >= stale_cutoff_s),
+            key=_book_age_s,
+            reverse=True,
+        )[:3]
+        if not candidates:
+            return
+
+        for m in candidates:
+            try:
+                yes_book, no_book = await asyncio.gather(
+                    self.clob.get_order_book(m.yes_token_id),
+                    self.clob.get_order_book(m.no_token_id),
+                    return_exceptions=True,
+                )
+                if not isinstance(yes_book, Exception):
+                    self.mm.update_book(m.yes_token_id, yes_book)
+                if not isinstance(no_book, Exception):
+                    self.mm.update_book(m.no_token_id, no_book)
+            except Exception:
+                continue
 
     # -- Log Buffer --
 
@@ -287,16 +373,70 @@ class Engine:
     def recent_logs(self) -> list[dict]:
         return list(self._log_buffer[-100:])
 
+    def _capture_odds_samples(self) -> None:
+        now = time.time()
+        for m in self.mm.markets.values():
+            if not m.yes_book or not m.no_book:
+                continue
+            yes_mid = float(m.yes_book.mid)
+            no_mid = float(m.no_book.mid)
+            if yes_mid <= 0 or no_mid <= 0:
+                continue
+            hist = self._odds_history[m.condition_id]
+            if not hist:
+                hist.append((now, yes_mid, no_mid))
+                continue
+            last_ts, last_yes, last_no = hist[-1]
+            if (now - last_ts) >= 1.0 or abs(yes_mid - last_yes) >= 0.0005 or abs(no_mid - last_no) >= 0.0005:
+                hist.append((now, yes_mid, no_mid))
+
+    def _odds_view_from_orderbook(self, ob_view: dict[str, Any]) -> dict[str, Any]:
+        condition_id = ob_view.get("condition_id", "")
+        if not condition_id:
+            return {
+                "condition_id": "",
+                "question": "",
+                "yes": [],
+                "no": [],
+                "yes_now": 0.0,
+                "no_now": 0.0,
+                "is_live": False,
+                "stale_age_s": 0.0,
+                "samples": 0,
+            }
+        hist = list(self._odds_history.get(condition_id, []))[-120:]
+        yes = [round(v[1] * 100, 2) for v in hist]
+        no = [round(v[2] * 100, 2) for v in hist]
+        yes_now = float(ob_view.get("yes_mid", 0.0)) * 100
+        no_now = float(ob_view.get("no_mid", 0.0)) * 100
+        if not yes and yes_now > 0:
+            yes = [round(yes_now, 2)]
+        if not no and no_now > 0:
+            no = [round(no_now, 2)]
+        return {
+            "condition_id": condition_id,
+            "question": ob_view.get("question", ""),
+            "yes": yes,
+            "no": no,
+            "yes_now": round(yes_now, 2),
+            "no_now": round(no_now, 2),
+            "is_live": bool(ob_view.get("is_live", False)),
+            "stale_age_s": float(ob_view.get("stale_age_s", 0.0)),
+            "samples": len(hist),
+        }
+
     # -- State Snapshot for TUI --
 
     def get_state(self) -> dict[str, Any]:
         """Return full state snapshot for TUI rendering."""
+        self._capture_odds_samples()
+        ob_view = self._orderbook_view()
         return {
             "running": self._running,
             "paused": self.executor.paused,
             "uptime_s": time.time() - self._start_time if self._start_time else 0,
             "pipeline_stage": self.executor.pipeline_stage.value,
-            "arb_stats": self.arb.stats,
+            "mm_stats": self.mm.stats,
             "exec_stats": self.executor.stats,
             "risk_status": self.risk.status,
             "ws_state": {
@@ -309,16 +449,15 @@ class Engine:
                                    if self.ws.state.last_message_at else 0),
             },
             "clob_latency_ms": self.clob.last_latency_ms,
-            "active_signals": {
-                cid: {
+            "active_quotes": {
+                cid[:8]: {
                     "market": s.market_id,
-                    "type": s.signal_type,
                     "spread_bps": s.spread_bps,
-                    "yes_price": s.yes_price,
-                    "no_price": s.no_price,
+                    "mid_yes": s.mid_yes,
+                    "mid_no": s.mid_no,
                     "max_size": s.max_size,
                 }
-                for cid, s in self.arb.active_signals.items()
+                for cid, s in self.mm.active_quotes.items()
             },
             "recent_orders": [
                 {
@@ -337,11 +476,90 @@ class Engine:
                     "yes_ask": m.yes_book.best_ask if m.yes_book else 0,
                     "no_bid": m.no_book.best_bid if m.no_book else 0,
                     "no_ask": m.no_book.best_ask if m.no_book else 0,
-                    "spread": ((m.yes_book.best_ask if m.yes_book else 0) +
-                               (m.no_book.best_ask if m.no_book else 0)),
-                    "ready": m.is_ready,
+                    "yes_mid": m.yes_book.mid if m.yes_book else 0,
+                    "no_mid": m.no_book.mid if m.no_book else 0,
+                    "spread_bps": (m.yes_book.spread_bps if m.yes_book else 0),
+                    "ready": m.is_ready(self.config.strategy.price_staleness_ms),
                 }
-                for m in list(self.arb.markets.values())[:20]
+                for m in list(self.mm.markets.values())[:20]
             ],
+            "orderbook_view": ob_view,
+            "odds_view": self._odds_view_from_orderbook(ob_view),
+            "inventory": self.executor.inventory_summary(),
             "pnl_history": self.executor.pnl_history[-100:],
         }
+
+    def _orderbook_view(self) -> dict[str, Any]:
+        now = time.time()
+        dwell_s = max(1.0, float(self.config.strategy.orderbook_dwell_s))
+        ready = [
+            m for m in self.mm.markets.values()
+            if m.is_ready(self.config.strategy.price_staleness_ms)
+        ]
+        available = self._available_orderbook_markets()
+        ready.sort(key=lambda m: m.condition_id)
+        if available:
+            selected: MarketState | None = next(
+                (m for m in available if m.condition_id == self._ob_selected_condition_id),
+                None,
+            )
+            if selected is None:
+                self._ob_rotate_idx %= len(available)
+                selected = available[self._ob_rotate_idx]
+                self._set_orderbook_selected(selected)
+
+            # Auto mode rotates across fresh books on dwell timer.
+            # Manual mode keeps the selected book until the user cycles it.
+            if self._ob_auto_rotate and ready:
+                selected_ready = (
+                    selected is not None
+                    and any(m.condition_id == selected.condition_id for m in ready)
+                )
+                if not selected_ready or now >= self._ob_selected_until:
+                    if selected_ready and len(ready) > 1:
+                        idx = next(i for i, m in enumerate(ready)
+                                   if m.condition_id == selected.condition_id)
+                        selected = ready[(idx + 1) % len(ready)]
+                    else:
+                        self._ob_rotate_idx %= len(ready)
+                        selected = ready[self._ob_rotate_idx]
+                        self._ob_rotate_idx = (self._ob_rotate_idx + 1) % len(ready)
+                    self._set_orderbook_selected(selected)
+
+            assert selected is not None
+            is_live = selected.is_ready(self.config.strategy.price_staleness_ms)
+            stale_age_s = max(
+                now - selected.yes_book.timestamp,
+                now - selected.no_book.timestamp,
+            )
+            selected_pos = next(
+                (i for i, m in enumerate(available)
+                 if m.condition_id == selected.condition_id),
+                0,
+            )
+
+            quotes = self.executor.active_quotes_for(selected.condition_id)
+            return {
+                "market_id": selected.market_id,
+                "condition_id": selected.condition_id,
+                "question": selected.question,
+                "yes_mid": selected.yes_book.mid if selected.yes_book else 0.0,
+                "no_mid": selected.no_book.mid if selected.no_book else 0.0,
+                "yes_bids": (selected.yes_book.bids[:5] if selected.yes_book else []),
+                "yes_asks": (selected.yes_book.asks[:5] if selected.yes_book else []),
+                "no_bids": (selected.no_book.bids[:5] if selected.no_book else []),
+                "no_asks": (selected.no_book.asks[:5] if selected.no_book else []),
+                "quotes": quotes,
+                "rotate_in_s": (
+                    max(0.0, self._ob_selected_until - now) if self._ob_auto_rotate else 0.0
+                ),
+                "rotate_mode": "AUTO" if self._ob_auto_rotate else "MANUAL",
+                "book_pos": selected_pos + 1,
+                "book_total": len(available),
+                "ready_total": len(ready),
+                "is_live": is_live,
+                "stale_age_s": stale_age_s,
+            }
+        self._ob_selected_condition_id = ""
+        self._ob_selected_until = 0.0
+        return {"market_id": "", "condition_id": "", "question": "", "quotes": []}

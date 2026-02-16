@@ -9,7 +9,7 @@ from typing import Any
 
 from yuga.config import RiskConfig
 from yuga.db import Database
-from yuga.strategy.arbitrage import ArbSignal
+from yuga.strategy.market_maker import QuoteSignal
 
 logger = logging.getLogger("yuga.risk")
 
@@ -52,8 +52,8 @@ class RiskManager:
         self._total_rejections = 0
         self._rejection_reasons: dict[str, int] = {}
 
-    async def check_signal(self, signal: ArbSignal) -> tuple[bool, str]:
-        """Validate whether a signal should be executed given current risk state."""
+    async def check_signal(self, signal: QuoteSignal) -> tuple[bool, str]:
+        """Validate whether a quote should be executed given current risk state."""
         self._total_checks += 1
 
         # Circuit breaker
@@ -76,7 +76,7 @@ class RiskManager:
 
         # Total exposure
         total_exp = await self.db.get_total_exposure()
-        order_cost = signal.yes_price * signal.max_size + signal.no_price * signal.max_size
+        order_cost = sum(o.price * o.size for o in signal.orders)
         if total_exp + order_cost > self.config.max_total_exposure_usdc:
             return self._reject("TOTAL_EXPOSURE",
                                 f"Would exceed total exposure limit: "
@@ -88,6 +88,17 @@ class RiskManager:
             return self._reject("MARKET_EXPOSURE",
                                 f"Would exceed market exposure: {mkt_exp:.2f} + {order_cost:.2f}")
 
+        # Inventory caps per outcome
+        for order in signal.orders:
+            current = await self.db.get_position_size(signal.condition_id, order.outcome)
+            projected = current + (order.size if order.side == "BUY" else -order.size)
+            if abs(projected) > self.config.position_limit_per_outcome:
+                return self._reject(
+                    "INVENTORY_LIMIT",
+                    f"{order.outcome} position {projected:.2f} exceeds limit "
+                    f"{self.config.position_limit_per_outcome:.2f}",
+                )
+
         # Open orders limit
         open_orders = await self.db.get_open_orders()
         if len(open_orders) >= self.config.max_open_orders:
@@ -96,7 +107,7 @@ class RiskManager:
         return True, "OK"
 
     async def record_cycle_result(self, pnl: float) -> None:
-        """Record the result of an arb cycle for risk tracking."""
+        """Record the result of a quote cycle for risk tracking."""
         self._maybe_reset_daily()
         self._daily_pnl += pnl
         await self.db.set_metric("daily_pnl", self._daily_pnl)
