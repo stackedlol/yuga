@@ -24,12 +24,7 @@
 
 # Yuga
 
-![Python](https://img.shields.io/badge/Python-3.11+-0D1117?style=for-the-badge&logo=python&logoColor=00D4AA)
-![Polymarket](https://img.shields.io/badge/Polymarket-0D1117?style=for-the-badge&logo=polygon&logoColor=7B3FE4)
-![SQLite](https://img.shields.io/badge/SQLite-0D1117?style=for-the-badge&logo=sqlite&logoColor=003B57)
-
-**Polymarket YES/NO arbitrage bot with live TUI.**
-Scans order books. Buys both sides under $1. Collects the spread.
+**Polymarket market-making + liquidity-provision bot with live TUI.**
 
 </div>
 
@@ -49,51 +44,46 @@ python main.py --dry-run      # observe only (starts paused)
 python main.py --headless     # daemon mode, logs to stdout
 ```
 
-## How It Works
+## Flow
 
 ```mermaid
 graph LR
-    A[Scan Markets] --> B{YES ask + NO ask < $1?}
-    B -->|Gap found| C[Buy YES + Buy NO simultaneously]
-    C --> D[Monitor fills]
-    D --> E{Both filled?}
-    E -->|Yes| F[Lock in spread — guaranteed $1 payout]
-    E -->|Partial| G[Cancel unfilled leg]
-    G --> A
-    F --> A
-    B -->|No gap| A
+    A[Ingest Order Book + Fills] --> B[Compute Midpoint]
+    B --> C[Quote Bid/Ask Around Mid]
+    C --> D[Cancel/Replace to Stay Near Top]
+    D --> E[Fill Monitor + Inventory Update]
+    E --> F[Risk Skew: Adjust Spread/Size]
+    F --> B
 ```
-
-In a binary market, `ask(YES) + ask(NO)` should equal `$1.00`. When it's less, buy both sides for a risk-free profit at resolution. The bot also detects reverse arbs where `bid(YES) + bid(NO) > $1.00`.
 
 ## Architecture
 
 ```mermaid
 graph TB
     subgraph Ingestion
-        CLOB[CLOB REST API]
-        WS[WebSocket Feed]
+        CLOB[CLOB REST]
+        WS[WebSocket]
     end
 
     subgraph Core
-        ARB[Arb Engine]
-        EXEC[Execution Controller]
+        MM[Market Maker]
+        EXEC[Order Controller]
         RISK[Risk Manager]
     end
 
     DB[(SQLite)]
     TUI[Terminal UI]
 
-    CLOB --> ARB
-    WS --> ARB
-    ARB -->|signal| RISK
+    CLOB --> MM
+    WS --> MM
+    MM -->|quotes| RISK
     RISK -->|approved| EXEC
     EXEC -->|orders| CLOB
     EXEC --> DB
-    ARB --> DB
+    MM --> DB
     RISK --> DB
     DB --> TUI
-    ARB --> TUI
+    MM --> TUI
     EXEC --> TUI
     RISK --> TUI
 ```
@@ -104,18 +94,7 @@ Keys: `p` pause/resume &middot; `c` cancel all &middot; `r` reload config &middo
 
 Commands in the input bar: `pause` `resume` `cancel-all` `reload` `status` `reset-cb` `quit`
 
-| Panel | What it shows |
-|-------|--------------|
-| **Metrics Bar** | WS/CLOB connection health, latency, uptime |
-| **Market Scanner** | Tracked markets, YES/NO bid/ask, combined ask sum, active signals |
-| **Order Feed** | Live orders with fill status, latency, age |
-| **Positions & Risk** | PnL, fill rate, circuit breaker state, exposure limits |
-| **PnL Chart** | Sparkline of cumulative PnL |
-| **Pipeline** | SCANNING → SNAPSHOT → CANDIDATE → PLACING → MONITORING → RESOLVING |
-
-## Risk Controls
-
-Circuit breakers trip automatically on daily loss limits or consecutive losses, then auto-reset after cooldown. All thresholds configurable in `config.yaml`.
+Minimal panels: order book, active quotes, inventory skew, spreads, fills, rewards, health/latency.
 
 ## State
 
