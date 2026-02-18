@@ -24,6 +24,12 @@
 
 # Yuga
 
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)](https://python.org)
+[![Textual](https://img.shields.io/badge/TUI-Textual-06b6d4?style=flat)](https://textual.textualize.io)
+[![Polymarket](https://img.shields.io/badge/Exchange-Polymarket-5b21b6?style=flat)](https://polymarket.com)
+[![SQLite](https://img.shields.io/badge/State-SQLite-003B57?style=flat&logo=sqlite&logoColor=white)](https://sqlite.org)
+[![License](https://img.shields.io/badge/License-Private-64748b?style=flat)]()
+
 **Polymarket market-making + liquidity-provision bot with live TUI.**
 
 </div>
