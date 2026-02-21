@@ -24,7 +24,7 @@ from yuga.tui.widgets.command_bar import CommandBar
 
 CSS = """
 Screen {
-    background: #0f172a;
+    background: #282828;
 }
 
 #status-bar {
@@ -82,41 +82,41 @@ Screen {
 
 /* Global panel styling */
 .panel-title {
-    color: #06b6d4;
-    background: #06b6d4 12%;
+    color: #83a598;
+    background: #83a598 12%;
     padding: 0 1;
 }
 
 DataTable > .datatable--header {
-    background: #1e293b;
-    color: #94a3b8;
+    background: #3c3836;
+    color: #a89984;
     text-style: bold;
 }
 
 DataTable > .datatable--cursor {
-    background: #06b6d4 18%;
+    background: #83a598 18%;
 }
 
 DataTable > .datatable--even-row {
-    background: #0f172a;
+    background: #282828;
 }
 
 DataTable > .datatable--odd-row {
-    background: #1e293b 40%;
+    background: #3c3836 40%;
 }
 
 Footer {
-    background: #0f172a;
-    color: #64748b;
+    background: #1d2021;
+    color: #928374;
 }
 
 Footer > .footer--key {
-    background: #1e293b;
-    color: #06b6d4;
+    background: #3c3836;
+    color: #83a598;
 }
 
 Footer > .footer--description {
-    color: #94a3b8;
+    color: #a89984;
 }
 """
 

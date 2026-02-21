@@ -7,12 +7,12 @@ from textual.widgets import Static, DataTable
 
 
 _STATUS = {
-    "FILLED":    ("#22c55e", "\u2714"),
-    "PARTIAL":   ("#f59e0b", "\u25d1"),
-    "OPEN":      ("#06b6d4", "\u25ce"),
-    "PENDING":   ("#64748b", "\u25cb"),
-    "CANCELLED": ("#64748b", "\u2718"),
-    "REJECTED":  ("#f43f5e", "\u2716"),
+    "FILLED":    ("#b8bb26", "\u2714"),
+    "PARTIAL":   ("#fabd2f", "\u25d1"),
+    "OPEN":      ("#83a598", "\u25ce"),
+    "PENDING":   ("#928374", "\u25cb"),
+    "CANCELLED": ("#928374", "\u2718"),
+    "REJECTED":  ("#fb4934", "\u2716"),
 }
 
 
@@ -21,25 +21,25 @@ class OrderFeed(Static):
     DEFAULT_CSS = """
     OrderFeed {
         height: 100%;
-        border: round #06b6d4 30%;
-        background: #0f172a;
+        border: round #83a598 30%;
+        background: #282828;
         padding: 0 1;
     }
     OrderFeed .panel-title {
         text-style: bold;
         height: 1;
-        color: #06b6d4;
-        background: #06b6d4 12%;
+        color: #83a598;
+        background: #83a598 12%;
         padding: 0 1;
     }
     OrderFeed DataTable {
         height: 1fr;
-        background: #0f172a;
+        background: #282828;
     }
     """
 
     def compose(self) -> ComposeResult:
-        yield Static("\u25b9 [bold #06b6d4]ORDERS[/]", classes="panel-title", id="of-title")
+        yield Static("\u25b9 [bold #83a598]ORDERS[/]", classes="panel-title", id="of-title")
         yield DataTable(id="of-table")
 
     def on_mount(self) -> None:
@@ -56,29 +56,29 @@ class OrderFeed(Static):
         fills = sum(1 for o in orders if o["status"] == "FILLED")
         rejects = sum(1 for o in orders if o["status"] == "REJECTED")
 
-        parts = [f"\u25b9 [bold #06b6d4]ORDERS[/] {len(orders)}"]
+        parts = [f"\u25b9 [bold #83a598]ORDERS[/] {len(orders)}"]
         if live:
-            parts.append(f"[#06b6d4]\u25ce{live}[/]")
+            parts.append(f"[#83a598]\u25ce{live}[/]")
         if fills:
-            parts.append(f"[#22c55e]\u2714{fills}[/]")
+            parts.append(f"[#b8bb26]\u2714{fills}[/]")
         if rejects:
-            parts.append(f"[#f43f5e]\u2716{rejects}[/]")
+            parts.append(f"[#fb4934]\u2716{rejects}[/]")
         self.query_one("#of-title", Static).update("  ".join(parts))
 
         for o in reversed(orders):
-            color, icon = _STATUS.get(o["status"], ("#64748b", "?"))
-            side = "[#22c55e]\u25b2[/]" if o["side"] == "BUY" else "[#f43f5e]\u25bc[/]"
-            out = "[#06b6d4]Y[/]" if o["outcome"] == "YES" else "[#a855f7]N[/]"
+            color, icon = _STATUS.get(o["status"], ("#928374", "?"))
+            side = "[#b8bb26]\u25b2[/]" if o["side"] == "BUY" else "[#fb4934]\u25bc[/]"
+            out = "[#83a598]Y[/]" if o["outcome"] == "YES" else "[#d3869b]N[/]"
 
             lat = o["latency_ms"]
-            lc = "#22c55e" if lat < 100 else "#f59e0b" if lat < 300 else "#f43f5e"
+            lc = "#b8bb26" if lat < 100 else "#fabd2f" if lat < 300 else "#fb4934"
 
             age = o["age_s"]
-            ac = "#64748b" if age < 5 else "#f59e0b" if age < 30 else "#f43f5e"
+            ac = "#928374" if age < 5 else "#fabd2f" if age < 30 else "#fb4934"
 
             t.add_row(
                 f"[{color}]{icon}[/]",
-                f"[#64748b]{o['id']}[/]",
+                f"[#928374]{o['id']}[/]",
                 side,
                 out,
                 f"{o['price']:.4f}",

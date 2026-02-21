@@ -23,24 +23,24 @@ def _build_pipeline(active: str, paused: bool) -> str:
 
     for i, (name, icon, label) in enumerate(_STAGES):
         if paused:
-            parts.append(f"[#64748b]{icon} {label}[/]")
+            parts.append(f"[#928374]{icon} {label}[/]")
         elif i == active_idx:
-            parts.append(f"[bold #06b6d4 on #06b6d4 15%] {icon} {label} [/]")
+            parts.append(f"[bold #83a598 on #83a598 15%] {icon} {label} [/]")
         elif i < active_idx:
-            parts.append(f"[#22c55e]{icon} {label}[/]")
+            parts.append(f"[#b8bb26]{icon} {label}[/]")
         else:
-            parts.append(f"[#64748b]{icon} {label}[/]")
+            parts.append(f"[#928374]{icon} {label}[/]")
 
     result: list[str] = []
     for i, part in enumerate(parts):
         result.append(part)
         if i < len(parts) - 1:
             if not paused and i < active_idx:
-                result.append("[#22c55e]\u2501\u2501\u25b8[/]")
+                result.append("[#b8bb26]\u2501\u2501\u25b8[/]")
             elif not paused and i == active_idx:
-                result.append("[#f59e0b]\u2501\u2501\u25b8[/]")
+                result.append("[#fabd2f]\u2501\u2501\u25b8[/]")
             else:
-                result.append("[#334155]\u2501\u2501\u25b8[/]")
+                result.append("[#504945]\u2501\u2501\u25b8[/]")
 
     return "".join(result)
 
@@ -51,15 +51,15 @@ class PipelinePanel(Static):
     PipelinePanel {
         height: 5;
         width: 100%;
-        border: round #06b6d4 30%;
-        background: #0f172a;
+        border: round #83a598 30%;
+        background: #282828;
         padding: 0 1;
     }
     PipelinePanel .panel-title {
         text-style: bold;
         height: 1;
-        color: #06b6d4;
-        background: #06b6d4 12%;
+        color: #83a598;
+        background: #83a598 12%;
         padding: 0 1;
     }
     PipelinePanel .pipe-vis {
@@ -67,12 +67,12 @@ class PipelinePanel(Static):
     }
     PipelinePanel .pipe-stats {
         height: 1;
-        color: #94a3b8;
+        color: #a89984;
     }
     """
 
     def compose(self) -> ComposeResult:
-        yield Static("\u25c8 [bold #06b6d4]PIPELINE[/]", classes="panel-title", id="pipe-title")
+        yield Static("\u25c8 [bold #83a598]PIPELINE[/]", classes="panel-title", id="pipe-title")
         yield Static("", classes="pipe-vis", id="pipe-vis")
         yield Static("", classes="pipe-stats", id="pipe-stats")
 
@@ -81,12 +81,12 @@ class PipelinePanel(Static):
         paused = exec_stats.get("paused", False)
 
         if paused:
-            indicator = "[#f43f5e]\u23f8 PAUSED[/]"
+            indicator = "[#fb4934]\u23f8 PAUSED[/]"
         else:
-            indicator = f"[#22c55e]\u25b6[/] {stage.lower()}"
+            indicator = f"[#b8bb26]\u25b6[/] {stage.lower()}"
 
         self.query_one("#pipe-title", Static).update(
-            f"\u25c8 [bold #06b6d4]PIPELINE[/]  {indicator}"
+            f"\u25c8 [bold #83a598]PIPELINE[/]  {indicator}"
         )
 
         self.query_one("#pipe-vis", Static).update(_build_pipeline(stage, paused))
@@ -98,13 +98,13 @@ class PipelinePanel(Static):
         markets_ready = mm_stats.get("markets_ready", 0)
         markets_total = mm_stats.get("markets_tracked", 0)
 
-        sep = "[#334155]\u2502[/]"
+        sep = "[#504945]\u2502[/]"
         stats = (
-            f"\u26a1 [#f59e0b]{quotes}[/] [#64748b]q[/]  {sep}  "
-            f"\u25ce [#06b6d4]{cycles}[/] [#64748b]cyc[/]  {sep}  "
-            f"\u25c8 {scans} [#64748b]scans[/]  {sep}  "
-            f"\u2714 [#22c55e]{total_quotes}[/] [#64748b]sent[/]  {sep}  "
-            f"\u25c9 {markets_ready}[#64748b]/{markets_total} mkts[/]"
+            f"\u26a1 [#fabd2f]{quotes}[/] [#928374]q[/]  {sep}  "
+            f"\u25ce [#83a598]{cycles}[/] [#928374]cyc[/]  {sep}  "
+            f"\u25c8 {scans} [#928374]scans[/]  {sep}  "
+            f"\u2714 [#b8bb26]{total_quotes}[/] [#928374]sent[/]  {sep}  "
+            f"\u25c9 {markets_ready}[#928374]/{markets_total} mkts[/]"
         )
 
         self.query_one("#pipe-stats", Static).update(stats)

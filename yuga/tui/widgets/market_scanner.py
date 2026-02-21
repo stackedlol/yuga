@@ -11,26 +11,32 @@ class MarketScanner(Static):
     DEFAULT_CSS = """
     MarketScanner {
         height: 100%;
-        border: round #06b6d4 30%;
-        background: #0f172a;
+        border: round #83a598 30%;
+        background: #282828;
         padding: 0 1;
     }
     MarketScanner .panel-title {
         text-style: bold;
         height: 1;
-        color: #06b6d4;
-        background: #06b6d4 12%;
+        color: #83a598;
+        background: #83a598 12%;
         padding: 0 1;
     }
     MarketScanner DataTable {
         height: 1fr;
-        background: #0f172a;
+        background: #282828;
+        scrollbar-color: #504945;
+        scrollbar-color-hover: #665c54;
+        scrollbar-color-active: #7c6f64;
+        scrollbar-background: #282828;
+        scrollbar-background-hover: #282828;
+        scrollbar-background-active: #282828;
     }
     """
 
     def compose(self) -> ComposeResult:
         yield Static(
-            "\u25c8 [bold #06b6d4]MARKETS[/] [#64748b]0[/]",
+            "\u25c8 [bold #83a598]MARKETS[/] [#928374]0[/]",
             classes="panel-title", id="sc-title",
         )
         yield DataTable(id="sc-table")
@@ -48,11 +54,11 @@ class MarketScanner(Static):
         ready = sum(1 for m in markets if m["ready"])
         sig_count = len(signals)
         parts = [
-            f"\u25c8 [bold #06b6d4]MARKETS[/] {len(markets)}",
-            f"[#22c55e]\u25cf {ready}[/]" if ready else "[#64748b]\u25cb 0[/]",
+            f"\u25c8 [bold #83a598]MARKETS[/] {len(markets)}",
+            f"[#b8bb26]\u25cf {ready}[/]" if ready else "[#928374]\u25cb 0[/]",
         ]
         if sig_count:
-            parts.append(f"[#f59e0b]\u26a1{sig_count}[/]")
+            parts.append(f"[#fabd2f]\u26a1{sig_count}[/]")
         self.query_one("#sc-title", Static).update("  ".join(parts))
 
         for m in markets:
@@ -60,23 +66,23 @@ class MarketScanner(Static):
             sa = m.get("spread_bps", 0)
 
             if sig:
-                dot = "[#f59e0b]\u2738[/]"
+                dot = "[#fabd2f]\u2738[/]"
             elif m["ready"]:
-                dot = "[#22c55e]\u25cf[/]"
+                dot = "[#b8bb26]\u25cf[/]"
             else:
-                dot = "[#64748b]\u25cb[/]"
+                dot = "[#928374]\u25cb[/]"
 
             if sa < 20:
-                sc = f"[bold #22c55e]{sa:.1f}bp[/]"
+                sc = f"[bold #b8bb26]{sa:.1f}bp[/]"
             elif sa > 80:
-                sc = f"[bold #f43f5e]{sa:.1f}bp[/]"
+                sc = f"[bold #fb4934]{sa:.1f}bp[/]"
             else:
-                sc = f"[#94a3b8]{sa:.1f}bp[/]"
+                sc = f"[#a89984]{sa:.1f}bp[/]"
 
             if sig:
-                sig_text = f"[bold #f59e0b]\u26a1 {sig['spread_bps']:.0f}bp[/]"
+                sig_text = f"[bold #fabd2f]\u26a1 {sig['spread_bps']:.0f}bp[/]"
             else:
-                sig_text = "[#64748b]\u2013[/]"
+                sig_text = "[#928374]\u2013[/]"
 
             t.add_row(
                 dot,
@@ -84,6 +90,6 @@ class MarketScanner(Static):
                 f"{m['yes_mid']:.3f}",
                 f"{m['no_mid']:.3f}",
                 sc,
-                "[#22c55e]\u25cf[/]" if m["ready"] else "[#64748b]\u25cb[/]",
+                "[#b8bb26]\u25cf[/]" if m["ready"] else "[#928374]\u25cb[/]",
                 sig_text,
             )

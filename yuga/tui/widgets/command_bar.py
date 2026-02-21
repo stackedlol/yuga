@@ -14,22 +14,22 @@ class CommandBar(Static):
         height: 3;
         padding: 0 1;
         layout: vertical;
-        background: #0f172a;
-        border-top: solid #1e293b;
+        background: #282828;
+        border-top: solid #3c3836;
     }
     CommandBar Input {
         height: 1;
         border: none;
         padding: 0;
-        background: #0f172a;
-        color: #e2e8f0;
+        background: #282828;
+        color: #ebdbb2;
     }
     CommandBar .cmd-out {
         height: 1;
     }
     CommandBar .cmd-hint {
         height: 1;
-        color: #64748b;
+        color: #928374;
     }
     """
 
@@ -40,10 +40,10 @@ class CommandBar(Static):
 
     def compose(self) -> ComposeResult:
         yield Static(
-            "[#06b6d4]pause[/][#334155] \u2502 [/][#06b6d4]resume[/][#334155] \u2502 [/]"
-            "[#06b6d4]cancel-all[/][#334155] \u2502 [/][#06b6d4]reload[/][#334155] \u2502 [/]"
-            "[#06b6d4]status[/][#334155] \u2502 [/][#06b6d4]reset-cb[/][#334155] \u2502 [/]"
-            "[#06b6d4]quit[/]",
+            "[#83a598]pause[/][#504945] \u2502 [/][#83a598]resume[/][#504945] \u2502 [/]"
+            "[#83a598]cancel-all[/][#504945] \u2502 [/][#83a598]reload[/][#504945] \u2502 [/]"
+            "[#83a598]status[/][#504945] \u2502 [/][#83a598]reset-cb[/][#504945] \u2502 [/]"
+            "[#83a598]quit[/]",
             classes="cmd-hint",
         )
         yield Input(placeholder="\u276f command", id="cmd-input")

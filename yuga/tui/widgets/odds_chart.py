@@ -13,15 +13,15 @@ class OddsChart(Static):
     DEFAULT_CSS = """
     OddsChart {
         height: 100%;
-        border: round #06b6d4 30%;
-        background: #0f172a;
+        border: round #83a598 30%;
+        background: #282828;
         padding: 0 1;
     }
     OddsChart .panel-title {
         text-style: bold;
         height: 1;
-        color: #06b6d4;
-        background: #06b6d4 12%;
+        color: #83a598;
+        background: #83a598 12%;
         padding: 0 1;
     }
     OddsChart .panel-body {
@@ -29,7 +29,7 @@ class OddsChart(Static):
     }
     OddsChart .chart-footer {
         height: 1;
-        color: #64748b;
+        color: #928374;
     }
     """
 
@@ -41,7 +41,7 @@ class OddsChart(Static):
         self._no.append(50.0)
 
     def compose(self) -> ComposeResult:
-        yield Static("[bold #06b6d4]ODDS[/]  [#64748b](historical %)[/]", classes="panel-title", id="odds-title")
+        yield Static("[bold #83a598]ODDS[/]  [#928374](historical %)[/]", classes="panel-title", id="odds-title")
         yield Static("", classes="panel-body", id="odds-body")
         yield Static("", classes="chart-footer", id="odds-footer")
 
@@ -87,19 +87,19 @@ class OddsChart(Static):
                 yi = max(0, min(h - 1, yi))
                 token = f"[{color}]{mark}[/]"
                 cell = grid[yi][xi]
-                if cell not in (" ", "[#334155]\u00b7[/]", "[#263648]\u00b7[/]"):
+                if cell not in (" ", "[#504945]\u00b7[/]", "[#3c3836]\u00b7[/]"):
                     token = "[bright_white]\u25c6[/]"
                 grid[yi][xi] = token
             end_token = f"[{color}]\u25cf[/]"
             end_cell = grid[y1][x]
-            if end_cell not in (" ", "[#334155]\u00b7[/]", "[#263648]\u00b7[/]"):
+            if end_cell not in (" ", "[#504945]\u00b7[/]", "[#3c3836]\u00b7[/]"):
                 end_token = "[bright_white]\u25c6[/]"
             grid[y1][x] = end_token
 
         y_start = ys[0]
         start_token = f"[{color}]\u25cf[/]"
         start_cell = grid[y_start][0]
-        if start_cell not in (" ", "[#334155]\u00b7[/]", "[#263648]\u00b7[/]"):
+        if start_cell not in (" ", "[#504945]\u00b7[/]", "[#3c3836]\u00b7[/]"):
             start_token = "[bright_white]\u25c6[/]"
         grid[y_start][0] = start_token
 
@@ -114,26 +114,26 @@ class OddsChart(Static):
         tick_rows = {self._to_row(t, height): t for t in ticks}
         for r, t in tick_rows.items():
             for x in range(width):
-                grid[r][x] = "[#334155]\u00b7[/]" if t not in (0, 100) else "[#263648]\u00b7[/]"
+                grid[r][x] = "[#504945]\u00b7[/]" if t not in (0, 100) else "[#3c3836]\u00b7[/]"
 
         # Distinct colors for immediate separation.
-        self._plot_series(grid, yes_vals, "#22c55e", "\u2571")
-        self._plot_series(grid, no_vals, "#f43f5e", "\u2572")
+        self._plot_series(grid, yes_vals, "#b8bb26", "\u2571")
+        self._plot_series(grid, no_vals, "#fb4934", "\u2572")
 
         # Endpoint glow markers.
         if yes_vals:
             y = self._to_row(yes_vals[-1], height)
-            grid[y][-1] = "[#4ade80]\u25cf[/]"
+            grid[y][-1] = "[#b8bb26]\u25cf[/]"
         if no_vals:
             y = self._to_row(no_vals[-1], height)
-            grid[y][-1] = "[#fb7185]\u25cf[/]"
+            grid[y][-1] = "[#fb4934]\u25cf[/]"
 
         out: list[str] = []
         for r, row in enumerate(grid):
-            axis = f"[#64748b]{tick_rows[r]:>3}%[/]" if r in tick_rows else "    "
+            axis = f"[#928374]{tick_rows[r]:>3}%[/]" if r in tick_rows else "    "
             out.append("".join(row) + " " + axis)
-        out.append(f"[#1e293b]{'\u2501' * width}[/]")
-        out.append("[#64748b]oldest[/]" + " " * max(1, width - 12) + "[#64748b]now[/]")
+        out.append(f"[#3c3836]{'\u2501' * width}[/]")
+        out.append("[#928374]oldest[/]" + " " * max(1, width - 12) + "[#928374]now[/]")
         return out
 
     def update_odds(self, odds_view: dict) -> None:
@@ -164,7 +164,7 @@ class OddsChart(Static):
         samples = int(odds_view.get("samples", 0))
 
         self.query_one("#odds-title", Static).update(
-            f"[bold #06b6d4]ODDS[/]  [#22c55e]YES {yes_now:5.2f}%[/]  [#f43f5e]NO {no_now:5.2f}%[/]"
+            f"[bold #83a598]ODDS[/]  [#b8bb26]YES {yes_now:5.2f}%[/]  [#fb4934]NO {no_now:5.2f}%[/]"
         )
 
         yes_vals = list(self._yes)
@@ -176,12 +176,12 @@ class OddsChart(Static):
 
         width = self.size.width - 9 if self.size.width > 14 else 56
         chart = self._render_market_chart(yes_vals, no_vals, width=width, height=10)
-        feed = "[#22c55e]LIVE[/]" if is_live else f"[#f59e0b]STALE {stale_age_s:.1f}s[/]"
+        feed = "[#b8bb26]LIVE[/]" if is_live else f"[#fabd2f]STALE {stale_age_s:.1f}s[/]"
         legend = (
-            "[#22c55e]\u25cf YES odds[/]  [#f43f5e]\u25cf NO odds[/]  "
-            f"[#22c55e]{yes_dp:+.2f}pt[/]  [#f43f5e]{no_dp:+.2f}pt[/]  "
-            f"{feed}  [#64748b]{samples} samples[/]"
+            "[#b8bb26]\u25cf YES odds[/]  [#fb4934]\u25cf NO odds[/]  "
+            f"[#b8bb26]{yes_dp:+.2f}pt[/]  [#fb4934]{no_dp:+.2f}pt[/]  "
+            f"{feed}  [#928374]{samples} samples[/]"
         )
 
         self.query_one("#odds-body", Static).update("\n".join(chart + [legend]))
-        self.query_one("#odds-footer", Static).update(f"[#64748b]{q[:64]}[/]")
+        self.query_one("#odds-footer", Static).update(f"[#928374]{q[:64]}[/]")
